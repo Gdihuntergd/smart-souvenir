@@ -1,0 +1,218 @@
+{% extends "gate_base.html" %}
+
+{% block title %}Log Pengunjung - Smart Souvenir Gate{% endblock %}
+{% block page_title %}Log Pengunjung{% endblock %}
+
+{% block content %}
+<div class="logs-page">
+    <!-- Filter Bar -->
+    <div class="card filter-card">
+        <div class="card-body">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Cari</label>
+                    <input type="text" id="searchInput" placeholder="Cari jumlah, status, waktu..."
+                           class="form-control" value="{{ search or '' }}"
+                           onkeyup="debounceSearch()">
+                </div>
+                <div class="filter-group">
+                    <label>Tanggal</label>
+                    <input type="date" id="dateFilter" class="form-control"
+                           value="{{ date_filter or '' }}" onchange="applyFilter()">
+                </div>
+                <div class="filter-group">
+                    <label>&nbsp;</label>
+                    <div style="display:flex; gap:0.5rem;">
+                        <button class="btn btn-primary" onclick="applyFilter()">
+                            <i class="fas fa-search"></i> Cari
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearFilter()">
+                            <i class="fas fa-times"></i> Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs Table -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-list"></i> Riwayat Deteksi</h2>
+            <span class="badge badge-secondary" id="totalBadge">Total: {{ logs.total }}</span>
+        </div>
+        <div class="card-body">
+            <div id="logsContent">
+                {% include '_logs_table.html' ignore missing %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal" id="detailModal">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3>Detail Deteksi</h3>
+            <button class="modal-close" onclick="closeModal('detailModal')">&times;</button>
+        </div>
+        <div class="modal-body" id="detailContent"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let searchTimer = null;
+    let currentPage = 1;
+
+    function debounceSearch() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(applyFilter, 400);
+    }
+
+    async function applyFilter(page = 1) {
+        const search = document.getElementById('searchInput').value.trim();
+        const date = document.getElementById('dateFilter').value;
+        currentPage = page;
+
+        const params = new URLSearchParams();
+        if (search) params.set('search', search);
+        if (date) params.set('date', date);
+        params.set('page', page);
+        params.set('per_page', 20);
+
+        try {
+            const res = await fetch('/gate/api/logs?' + params.toString());
+            const data = await res.json();
+            renderLogsTable(data);
+            document.getElementById('totalBadge').textContent = 'Total: ' + data.total;
+        } catch (err) {
+            showToast('Gagal memuat log', 'error');
+        }
+    }
+
+    function clearFilter() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('dateFilter').value = '';
+        applyFilter(1);
+    }
+
+    function renderLogsTable(data) {
+        const container = document.getElementById('logsContent');
+
+        if (!data.logs || data.logs.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <h3>Tidak Ada Log</h3>
+                    <p>Tidak ditemukan log yang sesuai filter</p>
+                </div>`;
+            return;
+        }
+
+        let html = `
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Waktu</th>
+                            <th>Jumlah Pengunjung</th>
+                            <th>Rata-rata Confidence</th>
+                            <th>Status Gate</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+        data.logs.forEach((log, i) => {
+            const no = (data.current_page - 1) * 20 + i + 1;
+            const confPct = (log.confidence_avg * 100).toFixed(1);
+            const gateBadge = log.gate_status === 'open'
+                ? '<span class="badge badge-success">OPEN</span>'
+                : '<span class="badge badge-danger">CLOSED</span>';
+
+            html += `
+                        <tr>
+                            <td>${no}</td>
+                            <td><i class="fas fa-clock"></i> ${log.detected_at}</td>
+                            <td><span class="visitor-count-badge">${log.visitor_count}</span> orang</td>
+                            <td>
+                                <div class="confidence-bar-container">
+                                    <div class="confidence-bar" style="width:${confPct}%"></div>
+                                    <span>${confPct}%</span>
+                                </div>
+                            </td>
+                            <td>${gateBadge}</td>
+                            <td>
+                                <button class="btn btn-sm btn-secondary" onclick="viewDetail(${log.id})">
+                                    <i class="fas fa-eye"></i> Detail
+                                </button>
+                            </td>
+                        </tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+
+        // Pagination
+        if (data.pages > 1) {
+            html += `<div class="pagination">`;
+            if (data.current_page > 1) {
+                html += `<button class="btn btn-sm btn-secondary" onclick="applyFilter(${data.current_page - 1})">
+                    <i class="fas fa-chevron-left"></i> Prev</button>`;
+            }
+            html += `<span class="page-info">Halaman ${data.current_page} dari ${data.pages}</span>`;
+            if (data.current_page < data.pages) {
+                html += `<button class="btn btn-sm btn-secondary" onclick="applyFilter(${data.current_page + 1})">
+                    Next <i class="fas fa-chevron-right"></i></button>`;
+            }
+            html += `</div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    async function viewDetail(id) {
+        try {
+            const res = await fetch(`/gate/api/logs?per_page=100`);
+            const data = await res.json();
+            const log = data.logs.find(l => l.id === id);
+            if (!log) { showToast('Log tidak ditemukan', 'error'); return; }
+
+            let html = `
+                <div class="detail-grid">
+                    <div class="detail-item"><strong>ID:</strong> ${log.id}</div>
+                    <div class="detail-item"><strong>Waktu:</strong> ${log.detected_at}</div>
+                    <div class="detail-item"><strong>Jumlah Pengunjung:</strong> ${log.visitor_count}</div>
+                    <div class="detail-item"><strong>Rata-rata Confidence:</strong> ${(log.confidence_avg * 100).toFixed(1)}%</div>
+                    <div class="detail-item"><strong>Status Gate:</strong> ${log.gate_status.toUpperCase()}</div>
+                </div>`;
+
+            if (log.detection_data) {
+                try {
+                    const det = JSON.parse(log.detection_data);
+                    html += `<h4 style="margin-top:1rem;">Data Deteksi</h4>`;
+                    html += `<pre class="json-display">${JSON.stringify(det, null, 2)}</pre>`;
+                } catch(e) {}
+            }
+
+            document.getElementById('detailContent').innerHTML = html;
+            document.getElementById('detailModal').classList.add('active');
+        } catch (err) {
+            showToast('Gagal memuat detail', 'error');
+        }
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('active');
+    }
+
+    // Initial render — load data via AJAX on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        applyFilter(1);
+        // Auto-refresh every 10 seconds
+        setInterval(() => applyFilter(currentPage), 10000);
+    });
+</script>
+{% endblock %}

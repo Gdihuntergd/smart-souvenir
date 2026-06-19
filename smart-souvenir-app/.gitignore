@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Environment Variables
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ML Models (large files - use Git LFS or download separately)
+# gate/models/best1.pt
+# ml/PBL.joblib
+
+# Generated keys
+kasir/private_key.pem
+kasir/public_key.pem
+
+# Database
+*.db
+*.sqlite3
+gate.db
+
+# Logs
+logs/
+*.log
+
+# Uploads
+uploads/
+
+# XAMPP
+*.sql.bak

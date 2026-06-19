@@ -1,0 +1,176 @@
+{% extends "gate_base.html" %}
+
+{% block title %}Pengaturan - Smart Souvenir Gate{% endblock %}
+{% block page_title %}Pengaturan{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+    <!-- ML Model Settings -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-brain"></i> Model Machine Learning</h2>
+        </div>
+        <div class="card-body">
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Status Model</h4>
+                        <p>Informasi tentang model ML yang sedang digunakan</p>
+                    </div>
+                    <div class="setting-value">
+                        <span class="badge" id="modelStatusBadge">
+                            {{ 'Loaded' if detector_status.model_loaded else 'Not Loaded' }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Tipe Model</h4>
+                        <p>Apakah menggunakan model asli atau placeholder</p>
+                    </div>
+                    <div class="setting-value">
+                        <span class="badge" id="modelTypeBadge">
+                            {{ 'Placeholder (Development)' if detector_status.is_placeholder else 'Production Model' }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Path Model</h4>
+                        <p>Lokasi file model ML</p>
+                    </div>
+                    <div class="setting-value">
+                        <code>{{ detector_status.model_path }}</code>
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Confidence Threshold</h4>
+                        <p>Minimum confidence untuk dianggap deteksi valid (0.0 - 1.0)</p>
+                    </div>
+                    <div class="setting-value">
+                        <input type="range" id="confidenceSlider" 
+                               min="0" max="100" 
+                               value="{{ (detector_status.confidence_threshold * 100)|int }}"
+                               oninput="updateConfidenceDisplay(this.value)">
+                        <span id="confidenceValue">{{ (detector_status.confidence_threshold * 100)|int }}%</span>
+                        <button class="btn btn-sm btn-primary" onclick="saveConfidence()">Simpan</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Info -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-info-circle"></i> Informasi Aplikasi</h2>
+        </div>
+        <div class="card-body">
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Project</h4>
+                        <p>Nama project</p>
+                    </div>
+                    <div class="setting-value">Smart Souvenir</div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Komponen</h4>
+                        <p>Komponen sistem</p>
+                    </div>
+                    <div class="setting-value">
+                        <span class="badge badge-primary">GATE</span>
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Versi</h4>
+                        <p>Versi aplikasi</p>
+                    </div>
+                    <div class="setting-value">1.0.0</div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <h4>Stack</h4>
+                        <p>Teknologi yang digunakan</p>
+                    </div>
+                    <div class="setting-value">
+                        <span class="tech-badge">Python</span>
+                        <span class="tech-badge">Flask</span>
+                        <span class="tech-badge">OpenCV</span>
+                        <span class="tech-badge">SQLite</span>
+                        <span class="tech-badge">Socket.IO</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updateConfidenceDisplay(value) {
+        document.getElementById('confidenceValue').textContent = value + '%';
+    }
+    
+    async function saveConfidence() {
+        const value = document.getElementById('confidenceSlider').value;
+        try {
+            const res = await fetch('/gate/api/settings/detector', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ confidence_threshold: value / 100 })
+            });
+            
+            if (res.ok) {
+                showToast('Confidence threshold berhasil disimpan', 'success');
+            }
+        } catch (err) {
+            showToast('Gagal menyimpan pengaturan', 'error');
+        }
+    }
+
+    // Real-time polling for detector status
+    async function refreshStatus() {
+        try {
+            // Detector status
+            const gateRes = await fetch('/gate/api/gate/status');
+            const gate = await gateRes.json();
+            const det = gate.detector;
+
+            const modelBadge = document.getElementById('modelStatusBadge');
+            if (det.model_loaded) {
+                modelBadge.className = 'badge badge-success';
+                modelBadge.textContent = 'Loaded';
+            } else {
+                modelBadge.className = 'badge badge-danger';
+                modelBadge.textContent = 'Not Loaded';
+            }
+
+            const typeBadge = document.getElementById('modelTypeBadge');
+            if (det.is_placeholder) {
+                typeBadge.className = 'badge badge-warning';
+                typeBadge.textContent = 'Placeholder (Development)';
+            } else {
+                typeBadge.className = 'badge badge-success';
+                typeBadge.textContent = 'Production Model';
+            }
+        } catch (err) {}
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        refreshStatus();
+        setInterval(refreshStatus, 3000); // Poll every 3 seconds
+    });
+</script>
+{% endblock %}

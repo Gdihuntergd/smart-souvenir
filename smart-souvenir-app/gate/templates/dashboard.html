@@ -1,0 +1,815 @@
+{% extends "gate_base.html" %}
+
+{% block title %}Dashboard - Smart Souvenir Gate{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Quick Stats Cards -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-info">
+                <h3 id="totalVisitors">{{ gate_state.total_visitors_today }}</h3>
+                <p>Pengunjung Hari Ini</p>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                <i class="fas fa-eye"></i>
+            </div>
+            <div class="stat-info">
+                <h3 id="lastDetection">-</h3>
+                <p>Deteksi Terakhir</p>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+                <i class="fas fa-door-open"></i>
+            </div>
+            <div class="stat-info">
+                <h3 id="gateStatusText">{{ gate_state.status | upper }}</h3>
+                <p>Status Gate</p>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b, #38f9d7);">
+                <i class="fas fa-video"></i>
+            </div>
+            <div class="stat-info">
+                <h3 id="cameraStatusText">Nonaktif</h3>
+                <p>Status Kamera</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Source Selection -->
+    <div class="card">
+        <div class="card-header">
+            <h2><i class="fas fa-video"></i> Sumber Kamera</h2>
+        </div>
+        <div class="card-body">
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                <button class="btn btn-primary" id="btnUsbCamera" onclick="startCamera('usb')">
+                    <i class="fas fa-usb"></i> USB Camera
+                </button>
+                <button class="btn btn-secondary" id="btnBrowserCam" onclick="startBrowserCamera()">
+                    <i class="fas fa-globe"></i> Browser Webcam
+                </button>
+                <button class="btn btn-secondary" id="btnIpCamera" onclick="showIpCameraModal()">
+                    <i class="fas fa-network-wired"></i> IP Camera
+                </button>
+                <button class="btn btn-danger" onclick="stopAllCameras()" style="margin-left:auto;">
+                    <i class="fas fa-stop"></i> Stop
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Row -->
+    <div class="content-row">
+        <!-- Camera Preview -->
+        <div class="card camera-preview-card">
+            <div class="card-header">
+                <h2><i class="fas fa-video"></i> Live Preview</h2>
+                <div class="card-actions">
+                    <span class="badge badge-secondary" id="cameraSourceBadge">Offline</span>
+                    <button class="btn btn-sm btn-info" onclick="captureSnapshot()" title="Snapshot">
+                        <i class="fas fa-camera"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body camera-body">
+                <div class="video-container" id="videoContainer" style="position:relative; display:inline-block;">
+                    <!-- Server-side MJPEG feed -->
+                    <img id="videoFeed" src="" alt="Camera Feed" style="display:none;">
+
+                    <!-- Browser webcam -->
+                    <video id="browserCam" autoplay playsinline style="display:none;"></video>
+
+                    <!-- Canvas overlay for bounding boxes -->
+                    <canvas id="detectionCanvas" style="position:absolute; top:0; left:0; pointer-events:none; display:none;"></canvas>
+
+                    <!-- Placeholder when no camera -->
+                    <div class="camera-placeholder" id="cameraPlaceholder">
+                        <i class="fas fa-video-slash" style="font-size:3rem; color:#aaa;"></i>
+                        <h3>Tidak Ada Kamera</h3>
+                        <p>Pilih sumber kamera di atas</p>
+                    </div>
+
+                    <div class="video-overlay" id="videoOverlay" style="display:none;">
+                        <div class="detection-count" id="detectionCount">
+                            <i class="fas fa-users"></i>
+                            <span>0</span> pengunjung terdeteksi
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gate Control Panel -->
+        <div class="card control-panel-card">
+            <div class="card-header">
+                <h2><i class="fas fa-sliders-h"></i> Kontrol</h2>
+            </div>
+            <div class="card-body">
+                <!-- Gate Toggle -->
+                <div class="control-group">
+                    <label>Status Gate</label>
+                    <div class="gate-toggle-container">
+                        <button class="gate-toggle {{ 'open' if gate_state.status == 'open' else 'closed' }}" 
+                                id="gateToggle" onclick="toggleGate()">
+                            <div class="toggle-track">
+                                <div class="toggle-thumb"></div>
+                            </div>
+                            <span class="toggle-label" id="gateLabel">
+                                {{ 'TERBUKA' if gate_state.status == 'open' else 'TERTUTUP' }}
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ML Detection -->
+                <div class="control-group">
+                    <label>Deteksi ML (YOLOv8)</label>
+                    <div style="display:flex; gap:0.5rem;">
+                        <button class="btn btn-success" id="btnStartDetection" onclick="toggleAutoDetection(true)">
+                            <i class="fas fa-play"></i> Auto
+                        </button>
+                        <button class="btn btn-danger" id="btnStopDetection" onclick="toggleAutoDetection(false)" disabled>
+                            <i class="fas fa-stop"></i> Stop
+                        </button>
+                    </div>
+                    <button class="btn btn-primary btn-block" style="margin-top:0.5rem;" onclick="runDetectionOnce()">
+                        <i class="fas fa-search"></i> Deteksi Manual
+                    </button>
+                </div>
+
+                <!-- Detection Result -->
+                <div class="control-group" id="detectionResult" style="display:none;">
+                    <label>Hasil Deteksi</label>
+                    <div class="detection-result-box">
+                        <div class="result-count">
+                            <span id="resultCount">0</span>
+                            <small>pengunjung</small>
+                        </div>
+                        <div class="result-confidence">
+                            <span id="resultConfidence">0%</span>
+                            <small>confidence</small>
+                        </div>
+                    </div>
+                    <div id="detectionDetailList" style="margin-top:0.5rem; max-height:120px; overflow-y:auto;"></div>
+                </div>
+
+                <!-- Realtime Feed -->
+                <div class="control-group">
+                    <label>Aktivitas Terkini</label>
+                    <div class="activity-feed" id="activityFeed">
+                        <div class="activity-item">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Menunggu aktivitas...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Row -->
+    <div class="content-row">
+        <div class="card chart-card">
+            <div class="card-header">
+                <h2><i class="fas fa-chart-bar"></i> Statistik Pengunjung Hari Ini</h2>
+            </div>
+            <div class="card-body">
+                <canvas id="visitorChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- IP Camera Modal -->
+<div class="modal" id="ipCameraModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Hubungkan IP Camera</h3>
+            <button class="modal-close" onclick="closeModal('ipCameraModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Stream URL</label>
+                <input type="text" id="ipCameraUrl" placeholder="rtsp://192.168.1.100:554/stream" class="form-control">
+                <small class="form-help">Masukkan URL RTSP atau HTTP stream</small>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('ipCameraModal')">Batal</button>
+            <button class="btn btn-primary" onclick="startIpCamera()">Hubungkan</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let detectionOverlay = false;
+    let autoDetectionActive = false;
+    let autoDetectionInterval = null;
+    let detectionRequestRunning = false;
+    let browserCameraStream = null;
+    let currentCameraSource = null; // 'server' | 'browser' | null
+    let visitorChart = null;
+
+    // ============================
+    // Chart
+    // ============================
+    function initChart() {
+        if (typeof Chart === 'undefined') {
+            console.warn('Chart.js not loaded — skipping chart initialization');
+            return;
+        }
+        const ctx = document.getElementById('visitorChart').getContext('2d');
+        visitorChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Array.from({length: 24}, (_, i) => `${i.toString().padStart(2,'0')}:00`),
+                datasets: [{
+                    label: 'Jumlah Pengunjung',
+                    data: new Array(24).fill(0),
+                    backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    async function loadStats() {
+        try {
+            const res = await fetch('/gate/api/stats');
+            const data = await res.json();
+            const el = document.getElementById('totalVisitors');
+            if (el) el.textContent = data.today.total_visitors;
+            if (data.today.peak_hour !== null && visitorChart) {
+                const hourlyData = new Array(24).fill(0);
+                for (const [hour, count] of Object.entries(data.hourly)) {
+                    hourlyData[parseInt(hour)] = count;
+                }
+                visitorChart.data.datasets[0].data = hourlyData;
+                visitorChart.update();
+            }
+        } catch (err) { console.error('Failed to load stats:', err); }
+    }
+
+    // ============================
+    // Camera Management
+    // ============================
+    async function startCamera(source) {
+        try {
+            stopBrowserCamera();
+            localStorage.removeItem('browserCamActive');
+            const res = await fetch('/gate/api/camera/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: source, index: 0 })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const feed = document.getElementById('videoFeed');
+                feed.src = '/gate/video/feed';
+                feed.style.display = 'block';
+                document.getElementById('browserCam').style.display = 'none';
+                document.getElementById('cameraPlaceholder').style.display = 'none';
+                currentCameraSource = 'server';
+
+                // Sync canvas when feed loads
+                feed.onload = () => { syncCanvasSize(); };
+
+                updateCameraBadge('USB Camera');
+                showToast('Kamera terhubung', 'success');
+            } else {
+                showToast(data.error || 'Gagal menghubungkan kamera', 'error');
+            }
+        } catch (err) { showToast('Error: ' + err.message, 'error'); }
+    }
+
+    async function startBrowserCamera() {
+        try {
+            await stopServerCamera();
+            // Use 'ideal' to request highest available resolution from device
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                    facingMode: 'environment'  // prefer back camera on mobile
+                }
+            });
+            const video = document.getElementById('browserCam');
+            video.srcObject = stream;
+            video.style.display = 'block';
+            document.getElementById('videoFeed').style.display = 'none';
+            document.getElementById('cameraPlaceholder').style.display = 'none';
+            browserCameraStream = stream;
+            currentCameraSource = 'browser';
+            localStorage.setItem('browserCamActive', 'true');
+            window.browserCamActive = true;
+
+            // Sync canvas once video is playing
+            video.addEventListener('loadedmetadata', () => {
+                syncCanvasSize();
+            });
+
+            updateCameraBadge('Browser Webcam');
+            showToast('Browser webcam aktif', 'success');
+        } catch (err) { showToast('Gagal mengakses webcam: ' + err.message, 'error'); }
+    }
+
+    function startIpCamera() {
+        const url = document.getElementById('ipCameraUrl').value;
+        if (!url) { showToast('Masukkan URL kamera', 'warning'); return; }
+        stopBrowserCamera();
+        localStorage.removeItem('browserCamActive');
+        fetch('/gate/api/camera/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: 'ip', url: url })
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                document.getElementById('videoFeed').src = '/gate/video/feed';
+                document.getElementById('videoFeed').style.display = 'block';
+                document.getElementById('browserCam').style.display = 'none';
+                document.getElementById('cameraPlaceholder').style.display = 'none';
+                currentCameraSource = 'server';
+                updateCameraBadge('IP Camera');
+                closeModal('ipCameraModal');
+                showToast('IP Camera terhubung', 'success');
+            } else { showToast(data.error || 'Gagal', 'error'); }
+        }).catch(err => showToast('Error: ' + err.message, 'error'));
+    }
+
+    function stopBrowserCamera() {
+        if (browserCameraStream) {
+            browserCameraStream.getTracks().forEach(t => t.stop());
+            browserCameraStream = null;
+        }
+        localStorage.removeItem('browserCamActive');
+        window.browserCamActive = false;
+    }
+
+    async function stopServerCamera() {
+        try { await fetch('/gate/api/camera/stop', { method: 'POST' }); } catch {}
+    }
+
+    async function stopAllCameras() {
+        stopBrowserCamera();
+        await stopServerCamera();
+        localStorage.removeItem('browserCamActive');
+        window.browserCamActive = false;
+        document.getElementById('videoFeed').style.display = 'none';
+        document.getElementById('browserCam').style.display = 'none';
+        document.getElementById('cameraPlaceholder').style.display = 'flex';
+        document.getElementById('detectionCanvas').style.display = 'none';
+        clearCanvas();
+        currentCameraSource = null;
+        updateCameraBadge('Offline');
+        toggleAutoDetection(false);
+        showToast('Kamera dimatikan', 'info');
+    }
+
+    function updateCameraBadge(text) {
+        const badge = document.getElementById('cameraSourceBadge');
+        badge.textContent = text;
+        badge.className = 'badge ' + (text === 'Offline' ? 'badge-secondary' : 'badge-success');
+        document.getElementById('cameraStatusText').textContent = text === 'Offline' ? 'Nonaktif' : 'Aktif';
+
+        // Highlight active camera button
+        const btnUsb = document.getElementById('btnUsbCamera');
+        const btnBrowser = document.getElementById('btnBrowserCam');
+        const btnIp = document.getElementById('btnIpCamera');
+        btnUsb.className = 'btn btn-secondary';
+        btnBrowser.className = 'btn btn-secondary';
+        btnIp.className = 'btn btn-secondary';
+
+        if (text.includes('USB')) btnUsb.className = 'btn btn-primary';
+        else if (text.includes('Browser')) btnBrowser.className = 'btn btn-primary';
+        else if (text.includes('IP')) btnIp.className = 'btn btn-primary';
+
+        // Update navbar camera badge
+        const navBadge = document.getElementById('cameraBadge');
+        if (navBadge) {
+            if (text === 'Offline') {
+                navBadge.className = 'badge badge-secondary';
+                navBadge.innerHTML = '<i class="fas fa-video"></i> Kamera Off';
+            } else {
+                navBadge.className = 'badge badge-success';
+                navBadge.innerHTML = '<i class="fas fa-video"></i> Kamera Aktif';
+            }
+        }
+    }
+
+    function showIpCameraModal() { document.getElementById('ipCameraModal').classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    // ============================
+    // Detection
+    // ============================
+
+    // Keep the overlay canvas exactly aligned with the visible camera element.
+    function syncCanvasSize() {
+        const canvas = document.getElementById('detectionCanvas');
+        let source = null;
+
+        if (currentCameraSource === 'browser') {
+            source = document.getElementById('browserCam');
+        } else if (currentCameraSource === 'server') {
+            source = document.getElementById('videoFeed');
+        }
+
+        if (!source) return false;
+
+        const rect = source.getBoundingClientRect();
+        const displayWidth = Math.max(1, Math.round(rect.width || source.clientWidth || 640));
+        const displayHeight = Math.max(1, Math.round(rect.height || source.clientHeight || 480));
+
+        canvas.width = displayWidth;
+        canvas.height = displayHeight;
+        canvas.style.width = `${displayWidth}px`;
+        canvas.style.height = `${displayHeight}px`;
+        canvas.style.display = 'block';
+        return true;
+    }
+
+    // Draw responsive bounding boxes for USB, IP, and browser cameras.
+    function drawDetections(detections, frameWidth, frameHeight) {
+        const canvas = document.getElementById('detectionCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!Array.isArray(detections) || detections.length === 0) return;
+
+        const sourceWidth = Number(frameWidth) || canvas.width;
+        const sourceHeight = Number(frameHeight) || canvas.height;
+        const scaleX = canvas.width / sourceWidth;
+        const scaleY = canvas.height / sourceHeight;
+
+        detections.forEach(det => {
+            if (!Array.isArray(det.bbox) || det.bbox.length !== 4) return;
+
+            const [rawX, rawY, rawW, rawH] = det.bbox.map(Number);
+            const x = rawX * scaleX;
+            const y = rawY * scaleY;
+            const w = rawW * scaleX;
+            const h = rawH * scaleY;
+            const confidence = Number(det.confidence) || 0;
+            const displayLabel = normalizeDetectionLabel(det.label);
+            const text = `${displayLabel} ${Math.round(confidence * 100)}%`;
+
+            const color = displayLabel === 'Wanita'
+                ? '#CB46FF'
+                : displayLabel === 'Pria'
+                    ? '#00AAFF'
+                    : '#00DC5A';
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = Math.max(2, canvas.width / 320);
+            ctx.strokeRect(x, y, w, h);
+
+            const fontSize = Math.max(13, Math.round(canvas.width / 48));
+            ctx.font = `bold ${fontSize}px Arial`;
+            const textWidth = ctx.measureText(text).width;
+            const boxHeight = fontSize + 12;
+            const labelY = Math.max(0, y - boxHeight);
+
+            ctx.fillStyle = color;
+            ctx.fillRect(x, labelY, textWidth + 14, boxHeight);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x + 7, labelY + boxHeight / 2);
+        });
+    }
+
+    function normalizeDetectionLabel(label) {
+        const normalized = String(label || '').trim().toLowerCase();
+        if (normalized === 'pria') return 'Pria';
+        if (normalized === 'wanita') return 'Wanita';
+        return String(label || 'Orang');
+    }
+
+    function clearCanvas() {
+        const canvas = document.getElementById('detectionCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Capture the frame currently visible in the browser.
+    function captureFrameBase64() {
+        return new Promise((resolve, reject) => {
+            const captureCanvas = document.createElement('canvas');
+            let source = null;
+
+            if (currentCameraSource === 'browser') {
+                source = document.getElementById('browserCam');
+                if (!source || source.readyState < 2 || !source.videoWidth) {
+                    reject(new Error('Frame browser webcam belum siap'));
+                    return;
+                }
+                captureCanvas.width = source.videoWidth;
+                captureCanvas.height = source.videoHeight;
+            } else if (currentCameraSource === 'server') {
+                source = document.getElementById('videoFeed');
+                if (!source || !source.complete || !source.naturalWidth) {
+                    reject(new Error('Frame kamera server belum siap'));
+                    return;
+                }
+                captureCanvas.width = source.naturalWidth;
+                captureCanvas.height = source.naturalHeight;
+            } else {
+                reject(new Error('Tidak ada kamera aktif'));
+                return;
+            }
+
+            const ctx = captureCanvas.getContext('2d');
+            ctx.drawImage(source, 0, 0, captureCanvas.width, captureCanvas.height);
+            resolve(captureCanvas.toDataURL('image/jpeg', 0.85));
+        });
+    }
+
+    async function runDetectionOnce() {
+        if (!currentCameraSource) {
+            showToast('Aktifkan kamera terlebih dahulu', 'warning');
+            return;
+        }
+
+        if (detectionRequestRunning) return;
+        detectionRequestRunning = true;
+
+        try {
+            const imageBase64 = await captureFrameBase64();
+            const response = await fetch('/gate/api/detection/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: imageBase64 })
+            });
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                throw new Error(data.error || `HTTP ${response.status}`);
+            }
+
+            updateDetectionResult(data);
+            addActivity(
+                data.detected
+                    ? `${data.count} orang terdeteksi`
+                    : 'Tidak ada orang terdeteksi',
+                data.detected ? 'success' : 'info'
+            );
+            loadStats();
+        } catch (err) {
+            console.error('[Detection]', err);
+            showToast('Gagal deteksi: ' + err.message, 'error');
+        } finally {
+            detectionRequestRunning = false;
+        }
+    }
+
+    function toggleAutoDetection(start) {
+        autoDetectionActive = start;
+        document.getElementById('btnStartDetection').disabled = start;
+        document.getElementById('btnStopDetection').disabled = !start;
+
+        if (start) {
+            if (!currentCameraSource) {
+                showToast('Aktifkan kamera terlebih dahulu', 'warning');
+                autoDetectionActive = false;
+                document.getElementById('btnStartDetection').disabled = false;
+                document.getElementById('btnStopDetection').disabled = true;
+                return;
+            }
+
+            syncCanvasSize();
+            runDetectionOnce();
+            autoDetectionInterval = setInterval(runDetectionOnce, 1200);
+            showToast('Deteksi otomatis diaktifkan', 'success');
+        } else {
+            if (autoDetectionInterval) {
+                clearInterval(autoDetectionInterval);
+                autoDetectionInterval = null;
+            }
+            detectionRequestRunning = false;
+            clearCanvas();
+            document.getElementById('detectionCanvas').style.display = 'none';
+            document.getElementById('videoOverlay').style.display = 'none';
+            showToast('Deteksi otomatis dinonaktifkan', 'info');
+        }
+    }
+
+    function updateDetectionResult(data) {
+        const resultDiv = document.getElementById('detectionResult');
+        resultDiv.style.display = 'block';
+
+        const detections = Array.isArray(data.detections) ? data.detections : [];
+        document.getElementById('resultCount').textContent = Number(data.count) || 0;
+        document.getElementById('resultConfidence').textContent = detections.length > 0
+            ? Math.round(
+                detections.reduce((total, item) => total + (Number(item.confidence) || 0), 0)
+                / detections.length * 100
+              ) + '%'
+            : '0%';
+
+        const overlay = document.getElementById('videoOverlay');
+        if (data.detected && detections.length > 0) {
+            overlay.style.display = 'block';
+            overlay.querySelector('span').textContent = Number(data.count) || detections.length;
+        } else {
+            overlay.style.display = 'none';
+        }
+
+        // The previous code only drew boxes for browser webcam.
+        // This version draws them for USB, IP, and browser cameras.
+        if (currentCameraSource && syncCanvasSize()) {
+            drawDetections(detections, data.frame_width, data.frame_height);
+        }
+
+        const detailList = document.getElementById('detectionDetailList');
+        if (detections.length > 0) {
+            detailList.innerHTML = detections.map(item => {
+                const label = normalizeDetectionLabel(item.label);
+                const confidence = Math.round((Number(item.confidence) || 0) * 100);
+                return `
+                    <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:0.85rem;">
+                        <span><i class="fas fa-user"></i> ${label}</span>
+                        <strong>${confidence}%</strong>
+                    </div>`;
+            }).join('');
+        } else {
+            detailList.innerHTML = '<span style="color:#999;font-size:0.85rem;">Tidak ada deteksi</span>';
+        }
+    }
+
+    // ============================
+    // Gate    // ============================
+    // Gate
+    // ============================
+    async function toggleGate() {
+        try {
+            const res = await fetch('/gate/api/gate/toggle', { method: 'POST' });
+            const data = await res.json();
+            const toggle = document.getElementById('gateToggle');
+            const label = document.getElementById('gateLabel');
+            const badge = document.getElementById('gateBadge');
+
+            if (data.status === 'open') {
+                toggle.className = 'gate-toggle open';
+                label.textContent = 'TERBUKA';
+                badge.className = 'badge badge-success';
+                badge.innerHTML = '<i class="fas fa-door-open"></i> OPEN';
+            } else {
+                toggle.className = 'gate-toggle closed';
+                label.textContent = 'TERTUTUP';
+                badge.className = 'badge badge-danger';
+                badge.innerHTML = '<i class="fas fa-door-closed"></i> CLOSED';
+            }
+            // Update stat card
+            document.getElementById('gateStatusText').textContent = data.status.toUpperCase();
+            showToast(`Gate ${data.status === 'open' ? 'dibuka' : 'ditutup'}`, 'success');
+        } catch (err) { showToast('Gagal mengubah status gate', 'error'); }
+    }
+
+    // ============================
+    // Snapshot
+    // ============================
+    function captureSnapshot() {
+        let source;
+        if (currentCameraSource === 'browser') source = document.getElementById('browserCam');
+        else if (currentCameraSource === 'server') source = document.getElementById('videoFeed');
+        if (!source) { showToast('Tidak ada kamera aktif', 'warning'); return; }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = source.videoWidth || source.naturalWidth || 640;
+        canvas.height = source.videoHeight || source.naturalHeight || 480;
+        canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+
+        const link = document.createElement('a');
+        link.download = `snapshot_${new Date().toISOString().replace(/[:.]/g,'-')}.jpg`;
+        link.href = canvas.toDataURL('image/jpeg', 0.9);
+        link.click();
+        showToast('Snapshot disimpan', 'success');
+    }
+
+    // ============================
+    // Activity Feed
+    // ============================
+    function addActivity(message, type = 'info') {
+        const feed = document.getElementById('activityFeed');
+        const now = new Date().toLocaleTimeString('id-ID');
+        const iconMap = {
+            'success': 'fas fa-check-circle',
+            'info': 'fas fa-info-circle',
+            'warning': 'fas fa-exclamation-triangle',
+            'error': 'fas fa-times-circle'
+        };
+
+        const item = document.createElement('div');
+        item.className = 'activity-item';
+        item.innerHTML = `
+            <i class="${iconMap[type] || iconMap.info}"></i>
+            <span>${message}</span>
+            <small class="activity-time">${now}</small>
+        `;
+        feed.insertBefore(item, feed.firstChild);
+        while (feed.children.length > 10) feed.removeChild(feed.lastChild);
+    }
+
+
+    window.addEventListener('resize', () => {
+        if (currentCameraSource && autoDetectionActive) {
+            syncCanvasSize();
+        }
+    });
+
+    // ============================
+    // WebSocket (optional — CDN may fail)
+    // ============================
+    let socket = null;
+    if (typeof io !== 'undefined') {
+        try {
+            socket = io();
+            socket.on('new_detection', (data) => {
+                addActivity(`${data.count} pengunjung baru terdeteksi!`, 'success');
+                loadStats();
+                showToast(`${data.count} pengunjung terdeteksi`, 'success');
+            });
+            socket.on('gate_status_change', (data) => {
+                const badge = document.getElementById('gateBadge');
+                badge.className = `badge badge-${data.status === 'open' ? 'success' : 'danger'}`;
+                badge.innerHTML = `<i class="fas fa-door-${data.status === 'open' ? 'open' : 'closed'}"></i> ${data.status.toUpperCase()}`;
+                document.getElementById('gateStatusText').textContent = data.status.toUpperCase();
+            });
+        } catch (e) { console.warn('Socket.IO unavailable:', e); }
+    } else {
+        console.warn('Socket.IO CDN not loaded — real-time updates disabled');
+    }
+
+    // ============================
+    // Init — restore camera state on page load
+    // ============================
+    document.addEventListener('DOMContentLoaded', async () => {
+        initChart();
+        loadStats();
+        setInterval(loadStats, 30000);
+
+        // Sync gate status from server
+        try {
+            const gateRes = await fetch('/gate/api/gate/status');
+            const gateData = await gateRes.json();
+            document.getElementById('gateStatusText').textContent = gateData.status.toUpperCase();
+            const badge = document.getElementById('gateBadge');
+            badge.className = `badge badge-${gateData.status === 'open' ? 'success' : 'danger'}`;
+            badge.innerHTML = `<i class="fas fa-door-${gateData.status === 'open' ? 'open' : 'closed'}"></i> ${gateData.status.toUpperCase()}`;
+            const toggle = document.getElementById('gateToggle');
+            const label = document.getElementById('gateLabel');
+            toggle.className = `gate-toggle ${gateData.status}`;
+            label.textContent = gateData.status === 'open' ? 'TERBUKA' : 'TERTUTUP';
+        } catch (err) {}
+
+        // Check if server camera is already running (persisted across pages)
+        try {
+            const res = await fetch('/gate/api/camera/status');
+            const cam = await res.json();
+            if (cam.is_running) {
+                const feed = document.getElementById('videoFeed');
+                feed.src = '/gate/video/feed';
+                feed.style.display = 'block';
+                document.getElementById('cameraPlaceholder').style.display = 'none';
+                currentCameraSource = 'server';
+                const sourceLabel = cam.source_type === 'ip' ? 'IP Camera' : 'USB Camera';
+                updateCameraBadge(sourceLabel);
+                feed.onload = () => { syncCanvasSize(); };
+            }
+        } catch (err) {}
+
+        // Restore browser webcam if it was active (localStorage flag)
+        if (localStorage.getItem('browserCamActive') === 'true') {
+            try {
+                await startBrowserCamera();
+                window.browserCamActive = true;
+            } catch (e) {
+                localStorage.removeItem('browserCamActive');
+                window.browserCamActive = false;
+            }
+        }
+    });
+</script>
+{% endblock %}

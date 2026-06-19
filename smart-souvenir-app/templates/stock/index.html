@@ -1,0 +1,425 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="d-flex flex-column mb-4 animate__animated animate__fadeIn">
+  <h2 class="fw-bold mb-1">Sistem Manajemen Stok</h2>
+  <p class="text-secondary mb-0">Pantau dan kelola inventori produk Anda dengan tracking per item</p>
+</div>
+
+<div class="row g-3 mb-4 animate__animated animate__fadeInUp">
+  <div class="col-md"><div class="stat-box">
+    <div class="stat-label">Total Produk</div>
+    <div class="stat-value text-primary">{{ total_produk }}</div>
+  </div></div>
+  <div class="col-md"><div class="stat-box">
+    <div class="stat-label">Total Item</div>
+    <div class="stat-value text-dark">{{ total_item }}</div>
+  </div></div>
+  <div class="col-md"><div class="stat-box">
+    <div class="stat-label">Stok Tersedia</div>
+    <div class="stat-value text-success">{{ stok_tersedia }}</div>
+  </div></div>
+  <div class="col-md"><div class="stat-box">
+    <div class="stat-label">Stok Menipis</div>
+    <div class="stat-value text-warning">{{ stok_menipis }}</div>
+  </div></div>
+  <div class="col-md"><div class="stat-box">
+    <div class="stat-label">Stok Habis</div>
+    <div class="stat-value text-danger">{{ stok_habis }}</div>
+  </div></div>
+</div>
+
+<div class="d-flex gap-3 mb-4 flex-wrap animate__animated animate__fadeIn">
+  <button class="btn btn-glass-secondary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#restockModal">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+    Restock Barang
+  </button>
+  <button class="btn btn-glass-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#addProductModal">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    Tambah Produk Baru
+  </button>
+  <button id="btnDeleteSelected" class="btn btn-glass-danger d-none align-items-center gap-2 animate__animated animate__fadeIn">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+    Hapus Terpilih (<span id="deleteCount">0</span>)
+  </button>
+  <button class="btn btn-glass-secondary d-flex align-items-center gap-2 ms-sm-auto" data-bs-toggle="modal" data-bs-target="#addSupplierModal">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+    Tambahkan Supplier
+  </button>
+  <button class="btn btn-glass-primary d-flex align-items-center gap-2" id="btnViewSuppliers">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+    Lihat Data Supplier
+  </button>
+</div>
+
+<div class="card glass-card border-0 p-4 shadow mb-4 animate__animated animate__fadeIn">
+  <div class="card-body p-0">
+    <div class="row g-3 align-items-center mb-4">
+      <div class="col-md-6">
+        <input id="searchBox" class="form-control" placeholder="Cari produk...">
+      </div>
+      <div class="col-md-3">
+        <select id="filterCategory" class="form-select">
+          <option value="">Semua Kategori</option>
+          {% for c in cats %}
+            <option value="{{ c.name }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select id="filterStatus" class="form-select">
+          <option value="">Semua Status</option>
+          <option value="Tersedia">Tersedia</option>
+          <option value="Menipis">Menipis</option>
+          <option value="Habis">Habis</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table id="productTable" class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th style="width: 40px;" class="text-center">
+              <input type="checkbox" id="selectAllProducts" class="form-check-input">
+            </th>
+            <th>Nama Produk</th>
+            <th>Kategori</th>
+            <th>Supplier</th>
+            <th class="text-center">Stok</th>
+            <th class="text-center">Min. Stok</th>
+            <th>Harga</th>
+            <th>Status</th>
+            <th>Update Terakhir</th>
+            <th class="text-end">Aksi</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for r in rows %}
+          <tr data-category="{{ r.category_name | default('-') }}" data-status="{{ r.status }}">
+            <td class="text-center">
+              <input type="checkbox" class="product-checkbox form-check-input" value="{{ r.id }}">
+            </td>
+            <td class="fw-semibold">{{ r.name }}</td>
+            <td><span class="text-secondary">{{ r.category_name | default('-') }}</span></td>
+            <td><span class="text-secondary">{{ r.supplier_name | default('-') }}</span></td>
+            <td class="text-center fw-medium">{{ r.available_cnt }}</td>
+            <td class="text-center text-secondary">{{ r.min_stock }}</td>
+            <td class="fw-semibold">Rp {{ "{:,.0f}".format(r.price).replace(",", ".") }}</td>
+            <td><span class="badge bg-{{ r.badge_class }}">{{ r.status }}</span></td>
+            <td class="text-secondary small">{{ r.formatted_last_update }}</td>
+            <td class="text-end text-nowrap">
+              <button class="btn btn-sm btn-glass-secondary btn-detail" data-id="{{ r.id }}">🔎 Periksa</button>
+              <button class="btn btn-sm btn-glass-secondary btn-restock" data-id="{{ r.id }}">🔄 Restock</button>
+              <a href="product_edit.php?id={{ r.id }}" class="btn btn-sm btn-glass-primary">✏️ Edit</a>
+              <form action="product_delete.php" method="post" class="d-inline"
+                    onsubmit="return confirm('Yakin ingin menghapus produk ini beserta semua item-nya?');">
+                <input type="hidden" name="id" value="{{ r.id }}">
+                <button type="submit" class="btn btn-sm btn-glass-danger">🗑 Hapus</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detail Produk -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content animate__animated animate__zoomIn">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="detailTitle">Detail Produk</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="detailSummary" class="row g-3 mb-4"></div>
+        <div class="table-responsive">
+          <table class="table align-middle" id="detailTable">
+            <thead><tr>
+              <th>Item ID</th>
+              <th>Kondisi</th>
+              <th>Status</th>
+              <th>Tgl. Pembelian</th>
+              <th class="text-end">Aksi</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Konfirmasi Hapus Massal -->
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content animate__animated animate__zoomIn" method="post" action="product_delete_bulk.php">
+      <input type="hidden" name="ids" id="bulkDeleteIdsInput">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold text-danger">Konfirmasi Hapus Massal</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">Apakah Anda yakin ingin menghapus <strong id="bulkDeleteCountText" class="text-danger">0</strong> produk terpilih beserta semua item di dalamnya?</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-glass-secondary" data-bs-dismiss="modal" type="button">Batal</button>
+        <button class="btn btn-glass-danger" type="submit">Hapus</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Tambah Produk -->
+<div class="modal fade" id="addProductModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form id="addProductForm" class="modal-content animate__animated animate__zoomIn" method="post" action="product_create.php">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Tambah Produk Baru</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">Nama Produk *</label>
+          <input id="productNameInput" name="name" class="form-control" required placeholder="Contoh: Baju PENS">
+          <div class="form-text text-muted mt-1">Tekan <b>Enter</b> setelah mengetik nama produk untuk memprediksi kategori secara otomatis.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">Kategori *</label>
+          <select id="categorySelect" name="category_id" class="form-select" required>
+            <option value="" hidden>Pilih kategori</option>
+            {% for c in cats %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+          <div id="predictionBox" class="alert alert-info py-2 mt-2 d-none border-0 bg-info bg-opacity-10 text-info rounded-3">
+             Prediksi kategori: <b id="predictionText"></b>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label small fw-semibold text-secondary">Harga (Rp) *</label>
+            <input type="number" min="0" name="price" class="form-control" value="0" required>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label small fw-semibold text-secondary">Minimum Stok</label>
+            <input type="number" min="0" name="min_stock" class="form-control" value="0">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">Supplier</label>
+          <select name="supplier_id" class="form-select">
+            <option value="">Pilih supplier (opsional)</option>
+            {% for s in suppliers %}
+              <option value="{{ s.id_supplier }}" data-name="{{ s.nama }}">
+                {{ s.nama }} (ID: {{ s.id_supplier }})
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="alert alert-light border-0 bg-secondary bg-opacity-10 text-secondary small mb-0 rounded-3">
+          Produk baru akan dibuat dengan stok awal 0. Gunakan menu <b>Restock</b> untuk menambahkan item.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-glass-secondary" data-bs-dismiss="modal" type="button">Batal</button>
+        <button class="btn btn-glass-primary" type="submit">Tambah Produk</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Tambah Supplier -->
+<div class="modal fade" id="addSupplierModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content animate__animated animate__zoomIn" method="post" action="supplier_create.php">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Tambahkan Supplier</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">Nama Supplier *</label>
+          <input type="text" name="nama" class="form-control" required placeholder="Contoh: PT Sumber Makmur">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">Alamat</label>
+          <textarea name="alamat" class="form-control" rows="2" placeholder="Contoh: Jl. Raya Mulyosari No. 10"></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">No. HP</label>
+          <input type="text" name="hp" class="form-control" placeholder="Contoh: 08123456789">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">Email</label>
+          <input type="email" name="email" class="form-control" placeholder="Contoh: info@sumbermakmur.com">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-glass-secondary" type="button" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-glass-primary" type="submit">Simpan Supplier</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Restock -->
+<div class="modal fade" id="restockModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content animate__animated animate__zoomIn" method="post" action="restock.php" id="restockForm">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">Restock Barang</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">Pilih Produk *</label>
+          <select name="product_id" id="restockProduct" class="form-select" required>
+            <option value="" hidden>Pilih...</option>
+            {% for p in plist %}
+              <option value="{{ p.id }}">{{ p.name }} - Stok: {{ p.avail }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label small fw-semibold text-secondary">Status *</label>
+            <select name="status" class="form-select" required>
+              <option value="tersedia">Tersedia</option>
+              <option value="dipesan">Dipesan</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label small fw-semibold text-secondary">Tanggal Pembelian *</label>
+            <input type="date" name="purchase_date" class="form-control" required value="{{ current_date }}">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label small fw-semibold text-secondary">Kuantitas</label>
+            <input type="number" name="qty" class="form-control" min="1" value="1">
+          </div>
+        </div>
+
+        <div class="p-3 border-0 bg-white bg-opacity-40 rounded-4 shadow-sm mt-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <b class="small d-block text-dark">Scan RFID (opsional)</b>
+              <span class="text-secondary" style="font-size: 11px;">Setiap tag RFID akan menjadi ID unik item.</span>
+            </div>
+            <button class="btn btn-sm btn-glass-primary" type="button" id="btnStartScan">Mulai Scan RFID</button>
+          </div>
+          <textarea class="form-control mb-2" name="rfid_tags" id="rfidTags" rows="3" placeholder="Tempel/ketik daftar Tag RFID (satu per baris)"></textarea>
+          <div class="text-secondary" style="font-size: 11px;">Jika diisi, jumlah item mengikuti banyaknya baris di sini dan mengabaikan kolom Kuantitas.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-glass-secondary" data-bs-dismiss="modal" type="button">Batal</button>
+        <button class="btn btn-glass-primary" type="submit">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Data Supplier -->
+<div class="modal fade" id="supplierModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content animate__animated animate__zoomIn" style="border: none; border-radius: 16px; overflow: hidden;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 20px 24px;">
+        <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="supplierModalTitle">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <span>Data Supplier</span>
+          <span id="supplierViewMode" class="badge bg-white text-dark ms-2" style="font-size: 11px;">Terenkripsi</span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding: 24px;">
+        <!-- Total Supplier Card - Always visible -->
+        <div class="row g-3 mb-4">
+          <div class="col-md-4" id="totalSupplierCardWrapper">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+              <div class="card-body d-flex align-items-center gap-3 p-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                </div>
+                <div>
+                  <div class="small text-secondary fw-semibold">Total Supplier</div>
+                  <div class="h4 mb-0 fw-bold text-dark" id="statTotalSupplierMain">-</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 d-none" id="avgEncryptCardWrapper">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);">
+              <div class="card-body d-flex align-items-center gap-3 p-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                </div>
+                <div>
+                  <div class="small text-secondary fw-semibold">Rata-rata Enkripsi</div>
+                  <div class="h4 mb-0 fw-bold text-dark" id="statAvgEncrypt">-</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4 d-none" id="avgDecryptCardWrapper">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);">
+              <div class="card-body d-flex align-items-center gap-3 p-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </div>
+                <div>
+                  <div class="small text-secondary fw-semibold">Rata-rata Dekripsi</div>
+                  <div class="h4 mb-0 fw-bold text-dark" id="statAvgDecrypt">-</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Supplier Table -->
+        <div class="card border-0 shadow-sm" style="border-radius: 12px; overflow: hidden;">
+          <div class="table-responsive mb-0">
+            <table class="table table-hover align-middle mb-0" id="supplierTable">
+              <thead style="background: #f8f9fa;">
+                <tr id="supplierTableHeader">
+                  <th class="ps-3" style="width: 60px;">ID</th>
+                  <th>Nama</th>
+                  <th>Alamat</th>
+                  <th>No. HP</th>
+                  <th>Email</th>
+                </tr>
+              </thead>
+              <tbody id="supplierTableBody">
+                <!-- Data will be populated by JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Encryption Info Alert (hidden initially) -->
+        <div class="alert border-0 rounded-3 mt-3 mb-0 d-none" id="encryptionInfo" style="background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%); color: #333;">
+          <div class="d-flex align-items-start gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-1"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <div>
+              <b>Informasi Enkripsi:</b> Data alamat, HP, dan email supplier dienkripsi menggunakan <b>AES-256-CBC</b> dengan library <code>pyaes</code>. 
+              Waktu yang ditunjukkan adalah waktu pemrosesan per operasi dalam <b>milidetik (ms)</b>.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top: 1px solid #eee; padding: 16px 24px;">
+        <button class="btn d-flex align-items-center gap-2" id="btnToggleDecrypt" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; border-radius: 8px; padding: 10px 20px; font-weight: 600;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          Perlihatkan Data Asli
+        </button>
+        <button class="btn btn-light" data-bs-dismiss="modal" type="button" style="border-radius: 8px; padding: 10px 20px;">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

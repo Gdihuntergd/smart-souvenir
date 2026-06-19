@@ -1,0 +1,338 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.45);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 10px 40px 0 rgba(31, 38, 135, 0.07);
+  --glass-blur: blur(20px);
+  
+  --primary-gradient: linear-gradient(135deg, #6366f1, #3b82f6);
+  --danger-gradient: linear-gradient(135deg, #ef4444, #f87171);
+  --success-gradient: linear-gradient(135deg, #10b981, #34d399);
+  --warning-gradient: linear-gradient(135deg, #f59e0b, #fbbf24);
+  
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+}
+
+body {
+  background: radial-gradient(circle at 0% 0%, rgba(243, 244, 246, 0.6) 0%, rgba(219, 234, 254, 0.35) 50%, rgba(243, 244, 246, 0.6) 100%);
+  background-attachment: fixed;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Background Blobs */
+.blob-c {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.4;
+  animation: float 25s infinite alternate ease-in-out;
+}
+
+.blob-1 {
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, #818cf8 0%, rgba(129, 140, 248, 0) 70%);
+  top: -10%;
+  left: -5%;
+  animation-duration: 25s;
+}
+
+.blob-2 {
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, #38bdf8 0%, rgba(56, 189, 248, 0) 70%);
+  bottom: -10%;
+  right: -5%;
+  animation-duration: 32s;
+  animation-delay: -7s;
+}
+
+.blob-3 {
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, #fb7185 0%, rgba(251, 113, 133, 0) 70%);
+  top: 35%;
+  left: 45%;
+  animation-duration: 20s;
+  animation-delay: -12s;
+}
+
+@keyframes float {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(60px, -60px) scale(1.15);
+  }
+  100% {
+    transform: translate(-40px, 40px) scale(0.9);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+/* Glassmorphism Containers */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  box-shadow: var(--glass-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 48px 0 rgba(31, 38, 135, 0.1);
+}
+
+/* Custom Floating Navigation */
+.glass-nav {
+  background: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02);
+}
+
+.glass-nav .navbar-brand {
+  font-weight: 800;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+
+/* Glass Buttons */
+.btn-glass-primary {
+  background: var(--primary-gradient);
+  border: none;
+  color: white !important;
+  font-weight: 600;
+  border-radius: 14px;
+  padding: 10px 24px;
+  box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.25);
+  transition: all 0.3s ease;
+}
+
+.btn-glass-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px 0 rgba(99, 102, 241, 0.35);
+}
+
+.btn-glass-primary:active {
+  transform: translateY(0);
+}
+
+.btn-glass-secondary {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  color: #4b5563 !important;
+  font-weight: 600;
+  border-radius: 14px;
+  padding: 10px 24px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.01);
+}
+
+.btn-glass-secondary:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.95);
+  color: #111827 !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+}
+
+.btn-glass-danger {
+  background: var(--danger-gradient);
+  border: none;
+  color: white !important;
+  font-weight: 600;
+  border-radius: 14px;
+  padding: 10px 24px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.2);
+}
+
+.btn-glass-danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px 0 rgba(239, 68, 68, 0.3);
+}
+
+/* Specific Mini Button variants for tables */
+.table .btn-sm {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  border-radius: 10px !important;
+}
+
+/* Modals */
+.modal-content {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  border-radius: 28px !important;
+  box-shadow: 0 24px 60px rgba(31, 38, 135, 0.12) !important;
+}
+
+.modal-header, .modal-footer {
+  border: none !important;
+  padding: 20px 24px !important;
+}
+
+.modal-body {
+  padding: 10px 24px 20px 24px !important;
+}
+
+/* Table styling */
+.table {
+  --bs-table-bg: transparent !important;
+}
+
+.table th {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.04) !important;
+  padding: 16px 12px !important;
+}
+
+.table td {
+  padding: 16px 12px !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03) !important;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.table-hover tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Input elements */
+.form-control, .form-select, textarea {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  border-radius: 14px !important;
+  padding: 12px 16px !important;
+  font-size: 14px !important;
+  color: var(--text-primary) !important;
+  transition: all 0.3s ease !important;
+}
+
+.form-control:focus, .form-select:focus, textarea:focus {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15) !important;
+  outline: none !important;
+}
+
+/* Badges */
+.badge {
+  padding: 6px 12px !important;
+  border-radius: 20px !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+}
+
+.bg-success {
+  background: var(--success-gradient) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+.bg-warning {
+  background: var(--warning-gradient) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+}
+
+.bg-danger {
+  background: var(--danger-gradient) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+}
+
+/* Custom Cards */
+.stat-box {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: var(--glass-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(31, 38, 135, 0.09);
+}
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+/* Floating shadow detail cards inside modals */
+.detail-summary-card {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 16px;
+  padding: 12px;
+  text-align: center;
+  transition: background-color 0.2s ease;
+}
+.detail-summary-card:hover {
+  background: rgba(255, 255, 255, 0.85);
+}

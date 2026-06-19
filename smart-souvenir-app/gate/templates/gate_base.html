@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Smart Souvenir - Gate{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('gate.static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" defer onerror="console.warn('Socket.IO CDN failed to load')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer onerror="console.warn('Chart.js CDN failed to load')"></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-store"></i>
+                <span>Smart Souvenir</span>
+            </div>
+            <div class="component-badge">GATE</div>
+        </div>
+        
+        <ul class="nav-links">
+            <li class="{% if request.endpoint == 'gate.dashboard' %}active{% endif %}">
+                <a href="{{ url_for('gate.dashboard') }}">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="{% if request.endpoint == 'gate.visitor_logs' %}active{% endif %}">
+                <a href="{{ url_for('gate.visitor_logs') }}">
+                    <i class="fas fa-list-alt"></i>
+                    <span>Log Pengunjung</span>
+                </a>
+            </li>
+            <li class="{% if request.endpoint == 'gate.settings_page' %}active{% endif %}">
+                <a href="{{ url_for('gate.settings_page') }}">
+                    <i class="fas fa-cog"></i>
+                    <span>Pengaturan</span>
+                </a>
+            </li>
+        </ul>
+        
+        <div class="sidebar-footer">
+            <div class="gate-indicator {{ gate_state.status }}">
+                <span class="indicator-dot"></span>
+                <span>Gate: {{ gate_state.status | upper }}</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="menu-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+            </div>
+            <div class="topbar-right">
+                <div class="status-badges">
+                    <span class="badge badge-{{ 'success' if gate_state.status == 'open' else 'danger' }}" id="gateBadge">
+                        <i class="fas fa-door-{{ 'open' if gate_state.status == 'open' else 'closed' }}"></i>
+                        {{ gate_state.status | upper }}
+                    </span>
+                    <span class="badge badge-{{ 'success' if gate_state.camera_active else 'secondary' }}" id="cameraBadge">
+                        <i class="fas fa-video"></i>
+                        {{ 'Kamera Aktif' if gate_state.camera_active else 'Kamera Off' }}
+                    </span>
+                </div>
+                <div class="datetime" id="datetime"></div>
+            </div>
+        </header>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        <i class="fas fa-info-circle"></i>
+                        {{ message }}
+                        <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Page Content -->
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container"></div>
+
+    <script src="{{ url_for('gate.static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

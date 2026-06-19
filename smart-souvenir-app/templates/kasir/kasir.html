@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}Kasir Trinity — Point of Sale{% endblock %}
+
+{% block body %}
+<div class="container">
+    <!-- ============ HEADER ============ -->
+    <header class="header">
+        <div class="header-main">
+            <h1 style="display: flex; align-items: center; gap: 8px;"><i data-lucide="crown"></i> Kasir Trinity</h1>
+            <p>Scan barcode produk untuk memulai transaksi</p>
+        </div>
+        <div class="header-badge">
+            <span class="pulse-dot"></span>
+            <span>Sistem Aktif</span>
+        </div>
+    </header>
+
+    <!-- ============ MAIN CONTENT ============ -->
+    <main class="main-content">
+        <!-- Left: Scanner + Scanned Products -->
+        <section class="card products-section">
+            <div class="card-title">
+                <span class="icon"><i data-lucide="smartphone"></i></span> Scanner Produk
+            </div>
+
+            <div class="scanner-area">
+                <div class="scanner-box" id="scanner-box">
+                    <div class="scanner-icon" style="display: flex; justify-content: center; align-items: center; color: var(--text-muted);"><i data-lucide="camera" style="width: 48px; height: 48px;"></i></div>
+                    <p>Arahkan kamera ke barcode produk</p>
+                    <div class="flex gap-2 mt-2 w-full">
+                        <button class="btn btn-outline btn-block" id="scan-toggle-btn" onclick="toggleScanner()" style="display: flex; justify-content: center; align-items: center; gap: 8px;">
+                            <i data-lucide="search" style="width: 16px; height: 16px;"></i> Mulai Scan Produk
+                        </button>
+                        <button class="btn btn-ghost btn-block" id="scan-simulate-btn" onclick="simulateScan()" style="display: flex; justify-content: center; align-items: center; gap: 8px;">
+                            <i data-lucide="zap" style="width: 16px; height: 16px;"></i> Simulasi Scan
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="scanned-products" id="scanned-products">
+                <!-- Rendered by JS -->
+            </div>
+        </section>
+
+        <!-- Right: Cart -->
+        <section class="card cart-section">
+            <div class="cart-header" style="display: flex; align-items: center; gap: 8px;"><i data-lucide="shopping-cart"></i> Keranjang Belanja</div>
+
+            <div class="cart-items" id="cart-items">
+                <div class="cart-empty">
+                    <div class="empty-icon" style="display: flex; justify-content: center; align-items: center; color: var(--text-muted);"><i data-lucide="shopping-cart" style="width: 48px; height: 48px;"></i></div>
+                    <p>Keranjang masih kosong</p>
+                </div>
+            </div>
+
+            <div class="cart-total hidden" id="cart-total">
+                <div class="total-row">
+                    <span>Subtotal:</span>
+                    <span id="subtotal">Rp 0</span>
+                </div>
+                <div class="total-row total-final">
+                    <span>Total:</span>
+                    <span id="total">Rp 0</span>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-primary btn-block" id="pay-btn" disabled onclick="openPaymentChoice()" style="display: flex; justify-content: center; align-items: center; gap: 8px;">
+                    <i data-lucide="credit-card" style="width: 18px; height: 18px;"></i> Bayar Sekarang
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>Terima kasih atas kunjungan Anda — Kasir Trinity &copy; 2026</p>
+    </footer>
+</div>
+
+<!-- ================================================================
+     MODAL 1: Payment Choice (Member vs Non-Member)
+     ================================================================ -->
+<div class="modal-overlay" id="modal-payment-choice">
+    <div class="modal-content">
+        <button class="close-btn" onclick="closeModal('modal-payment-choice')">&times;</button>
+        <div class="modal-header">
+            <h2 class="modal-title" style="display: flex; align-items: center; gap: 8px;"><i data-lucide="credit-card"></i> Pilih Metode Pembayaran</h2>
+            <p class="modal-subtitle">Pilih cara pembayaran Anda</p>
+        </div>
+
+        <div class="payment-choice-grid">
+            <div class="choice-card" onclick="chooseMemberPayment()">
+                <div class="choice-icon" style="display: flex; justify-content: center; align-items: center; color: var(--primary);"><i data-lucide="user" style="width: 36px; height: 36px;"></i></div>
+                <div class="choice-title">Bayar Sebagai Member</div>
+                <div class="choice-desc">Gunakan saldo, face pay, atau QR. Dapatkan poin!</div>
+            </div>
+            <div class="choice-card" onclick="chooseNonMemberPayment()">
+                <div class="choice-icon" style="display: flex; justify-content: center; align-items: center; color: var(--primary);"><i data-lucide="tag" style="width: 36px; height: 36px;"></i></div>
+                <div class="choice-title">Bayar Sebagai Non-Member</div>
+                <div class="choice-desc">Bayar langsung via QR atau daftar member baru</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL 2A: Member Login (Face Recognition)
+     ================================================================ -->
+<div class="modal-overlay" id="modal-member-login">
+    <div class="modal-content">
+        <button class="close-btn" onclick="closeMemberLogin()">&times;</button>
+        <div class="modal-header">
+            <h2 class="modal-title" style="display: flex; align-items: center; gap: 8px;"><i data-lucide="user"></i> Login Member</h2>
+            <p class="modal-subtitle">Arahkan wajah ke kamera untuk login</p>
+        </div>
+
+        <div class="camera-container" id="member-login-camera-container">
+            <video id="member-login-camera" autoplay playsinline muted></video>
+            <canvas id="member-login-overlay"></canvas>
+        </div>
+
+        <div class="camera-status detecting" id="member-login-status">
+            <i data-lucide="scan-search" style="width:16px;height:16px;display:inline;"></i> Mencari wajah...
+        </div>
+
+        <button class="btn btn-primary btn-block mt-2" id="member-login-btn" onclick="verifyFaceForLogin()">
+            <span id="member-login-text"><i data-lucide="lock" style="width:16px;height:16px;display:inline;vertical-align:middle;"></i> Verifikasi & Masuk</span>
+            <span class="spinner hidden" id="member-login-spinner"></span>
+        </button>
+
+        <div id="member-login-result"></div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL 2B: Member Dashboard (saldo, poin, topup, pay)
+     ================================================================ -->
+<div class="modal-overlay" id="modal-member-dashboard">
+    <div class="modal-content modal-lg">
+        <button class="close-btn" onclick="closeModal('modal-member-dashboard')">&times;</button>
+        <div class="modal-header">
+            <h2 class="modal-title" style="display:flex;align-items:center;gap:8px;"><i data-lucide="user"></i> Dashboard Member</h2>
+        </div>
+
+        <!-- Member Info Card -->
+        <div class="member-card" id="member-info-card">
+            <div class="member-name" id="dash-member-name">—</div>
+            <div class="member-stats">
+                <div class="member-stat">
+                    <div class="stat-value" id="dash-member-points">0</div>
+                    <div class="stat-label">Poin</div>
+                </div>
+                <div class="member-stat">
+                    <div class="stat-value" id="dash-member-saldo">Rp 0</div>
+                    <div class="stat-label">Saldo</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Up Section -->
+        <div id="topup-section" class="hidden">
+            <h4 class="mb-1" style="display:flex;align-items:center;gap:6px;"><i data-lucide="wallet" style="width:18px;height:18px;"></i> Top Up Saldo</h4>
+            <div class="topup-amounts">
+                <div class="topup-chip" onclick="selectTopup(50000)">Rp 50.000</div>
+                <div class="topup-chip" onclick="selectTopup(100000)">Rp 100.000</div>
+                <div class="topup-chip" onclick="selectTopup(200000)">Rp 200.000</div>
+                <div class="topup-chip" onclick="selectTopup(500000)">Rp 500.000</div>
+                <div class="topup-chip" onclick="selectTopup(1000000)">Rp 1.000.000</div>
+                <div class="topup-chip" onclick="selectTopup(0)">Custom</div>
+            </div>
+            <div class="form-group hidden" id="topup-custom-group">
+                <input type="number" class="form-input" id="topup-custom-amount"
+                       placeholder="Masukkan jumlah" min="1000">
+            </div>
+            <button class="btn btn-success btn-block" onclick="processTopup()" style="display:flex;justify-content:center;align-items:center;gap:8px;">
+                <i data-lucide="check-circle" style="width:16px;height:16px;"></i> Konfirmasi Top Up
+            </button>
+            <button class="btn btn-ghost btn-block mt-1" onclick="hideTopup()">← Kembali</button>
+        </div>
+
+        <!-- Payment Options (shown by default) -->
+        <div id="member-pay-options">
+            <button class="btn btn-ghost btn-block mb-1" onclick="showTopup()" style="display:flex;justify-content:center;align-items:center;gap:8px;">
+                <i data-lucide="wallet" style="width:16px;height:16px;"></i> Top Up Saldo
+            </button>
+
+            <!-- Point Options -->
+            <h4 class="mb-1" style="display:flex;align-items:center;gap:6px;"><i data-lucide="gift" style="width:18px;height:18px;"></i> Opsi Poin</h4>
+            <div class="point-options" id="point-options">
+                <div class="point-option selected" id="opt-regular" onclick="selectPointOption('regular')">
+                    <div class="option-icon" style="display:flex;justify-content:center;align-items:center;color:var(--primary);"><i data-lucide="credit-card" style="width:24px;height:24px;"></i></div>
+                    <div class="option-title">Bayar Biasa</div>
+                    <div class="option-desc">Bayar penuh, dapatkan poin baru</div>
+                </div>
+                <div class="point-option" id="opt-redeem" onclick="selectPointOption('redeem')">
+                    <div class="option-icon" style="display:flex;justify-content:center;align-items:center;color:var(--primary);"><i data-lucide="gift" style="width:24px;height:24px;"></i></div>
+                    <div class="option-title">Pakai Poin</div>
+                    <div class="option-desc">Gunakan poin sebagai diskon</div>
+                </div>
+            </div>
+
+            <div id="redeem-info" class="hidden">
+                <div class="alert alert-info">
+                    <i data-lucide="lightbulb" style="width:16px;height:16px;display:inline;vertical-align:middle;"></i> <span id="redeem-info-text">—</span>
+                </div>
+            </div>
+
+            <!-- Payment Method -->
+            <h4 class="mb-1 mt-2" style="display:flex;align-items:center;gap:6px;"><i data-lucide="credit-card" style="width:18px;height:18px;"></i> Metode Pembayaran</h4>
+            <div class="payment-methods">
+                <div class="method-btn" onclick="startFacePayment()">
+                    <div class="method-icon" style="display:flex;justify-content:center;align-items:center;color:var(--primary);"><i data-lucide="scan-face" style="width:28px;height:28px;"></i></div>
+                    <div class="method-info">
+                        <div class="method-title">Face Recognition</div>
+                        <div class="method-desc">Verifikasi wajah & potong saldo otomatis</div>
+                    </div>
+                </div>
+                <div class="method-btn" onclick="startQRPayment('member')">
+                    <div class="method-icon" style="display:flex;justify-content:center;align-items:center;color:var(--primary);"><i data-lucide="qr-code" style="width:28px;height:28px;"></i></div>
+                    <div class="method-info">
+                        <div class="method-title">Scan QR (QRIS)</div>
+                        <div class="method-desc">Bayar menggunakan QRIS</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL 3: Non-Member Payment
+     ================================================================ -->
+<div class="modal-overlay" id="modal-nonmember">
+    <div class="modal-content">
+        <button class="close-btn" onclick="closeModal('modal-nonmember')">&times;</button>
+        <div class="modal-header">
+            <h2 class="modal-title" style="display:flex;align-items:center;gap:8px;"><i data-lucide="tag"></i> Pembayaran Non-Member</h2>
+            <p class="modal-subtitle">Bayar langsung atau daftar menjadi member</p>
+        </div>
+
+        <div class="payment-choice-grid">
+            <div class="choice-card" onclick="startQRPayment('nonmember')">
+                <div class="choice-icon" style="display:flex;justify-content:center;align-items:center;color:var(--primary);"><i data-lucide="qr-code" style="width:36px;height:36px;"></i></div>
+                <div class="choice-title">Bayar via QR</div>
+                <div class="choice-desc">Pembayaran langsung tanpa akun member</div>
+            </div>
+            <div class="choice-card" onclick="openRegisterModal()">
+                <div class="choice-icon" style="display:flex;justify-content:center;align-items:center;color:var(--primary);"><i data-lucide="user-plus" style="width:36px;height:36px;"></i></div>
+                <div class="choice-title">Daftar Member</div>
+                <div class="choice-desc">Daftar & nikmati keuntungan member</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL 4: Register Member (with face enrollment)
+     ================================================================ -->
+<div class="modal-overlay" id="modal-register">
+    <div class="modal-content modal-lg">
+        <button class="close-btn" onclick="closeModal('modal-register')">&times;</button>
+        <div class="modal-header">
+            <h2 class="modal-title" style="display:flex;align-items:center;gap:8px;"><i data-lucide="user-plus"></i> Daftar Member Baru</h2>
+            <p class="modal-subtitle">Isi data diri dan daftarkan wajah Anda</p>
+        </div>
+
+        <form id="register-form" onsubmit="handleRegister(event)">
+            <div class="form-group">
+                <label class="form-label" for="reg-name">Nama Lengkap</label>
+                <input type="text" class="form-input" id="reg-name"
+                       placeholder="Masukkan nama lengkap" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="reg-nik">NIK</label>
+                <input type="text" class="form-input" id="reg-nik"
+                       placeholder="Masukkan NIK (16 digit)" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="reg-phone">Nomor HP</label>
+                <input type="tel" class="form-input" id="reg-phone"
+                       placeholder="Masukkan nomor HP" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="reg-address">Alamat</label>
+                <textarea class="form-input" id="reg-address"
+                          placeholder="Masukkan alamat lengkap" rows="3" required></textarea>
+            </div>
+
+            <!-- Face Enrollment Section -->
+            <h4 class="mb-1" style="display:flex;align-items:center;gap:6px;"><i data-lucide="scan-face" style="width:18px;height:18px;"></i> Daftarkan Wajah (Opsional)</h4>
+            <p class="form-hint mb-2">Ambil foto wajah untuk fitur Face Pay</p>
+
+            <div class="camera-container hidden" id="register-camera-container">
+                <video id="register-camera" autoplay playsinline muted></video>
+                <canvas id="register-camera-overlay"></canvas>
+            </div>
+
+            <div class="flex gap-2 mb-2">
+                <button type="button" class="btn btn-ghost btn-block" id="reg-camera-toggle"
+                        onclick="toggleRegisterCamera()">
+                    <i data-lucide="camera" style="width:16px;height:16px;display:inline;vertical-align:middle;"></i> Buka Kamera
+                </button>
+                <button type="button" class="btn btn-outline btn-block hidden" id="reg-capture-btn"
+                        onclick="captureRegisterFace()">
+                    <i data-lucide="aperture" style="width:16px;height:16px;display:inline;vertical-align:middle;"></i> Ambil Foto
+                </button>
+            </div>
+
+            <div id="reg-face-preview" class="hidden text-center mb-2">
+                <img id="reg-face-img" style="max-width:200px; border-radius:12px; border:2px solid var(--success);">
+                <p class="text-success mt-1"><strong><i data-lucide="check-circle" style="width:16px;height:16px;display:inline;vertical-align:middle;"></i> Foto wajah berhasil diambil</strong></p>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">
+                <span id="reg-submit-text"><i data-lucide="check-circle" style="width:16px;height:16px;display:inline;vertical-align:middle;"></i> Daftar Member</span>
+                <span class="spinner hidden" id="reg-submit-spinner"></span>
+            </button>
+        </form>
+
+        <div id="register-result"></div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL 5: Face Verification (for payment)
+     ================================================================ -->
+<div class="modal-overlay" id="modal-face-verify">
+    <div class="modal-content">
+        <button class="close-btn" onclick="closeFaceVerify()">&times;</button>
+        <div class="modal-header">
+            <h2 class="modal-title" style="display:flex;align-items:center;gap:8px;"><i data-lucide="scan-face"></i> Verifikasi Wajah</h2>
+            <p class="modal-subtitle">Arahkan wajah ke kamera untuk verifikasi</p>
+        </div>
+
+        <div class="camera-container" id="face-verify-camera-container">
+            <video id="face-verify-camera" autoplay playsinline muted></video>
+            <canvas id="face-verify-overlay"></canvas>
+        </div>
+
+        <div class="camera-status detecting" id="face-verify-status">
+            <i data-lucide="scan-search" style="width:16px;height:16px;display:inline;"></i> Mencari wajah...
+        </div>
+
+        <button class="btn btn-primary btn-block mt-2" id="face-verify-btn"
+                onclick="verifyFaceForPayment()">
+            <span id="face-verify-text"><i data-lucide="lock" style="width:16px;height:16px;display:inline;vertical-align:middle;"></i> Verifikasi & Bayar</span>
+            <span class="spinner hidden" id="face-verify-spinner"></span>
+        </button>
+
+        <div id="face-verify-result"></div>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL 6: QR Payment
+     ================================================================ -->
+<div class="modal-overlay" id="modal-qr-payment">
+    <div class="modal-content">
+        <button class="close-btn" onclick="closeModal('modal-qr-payment')">&times;</button>
+        <div class="modal-header">
+            <h2 class="modal-title" style="display:flex;align-items:center;gap:8px;"><i data-lucide="qr-code"></i> Pembayaran QRIS</h2>
+            <p class="modal-subtitle">Scan kode QR untuk membayar</p>
+        </div>
+
+        <div class="qr-container">
+            <div class="qr-code-wrapper" id="qr-code-display"></div>
+            <div class="qr-amount" id="qr-total-display">Rp 0</div>
+            <div class="qr-label">Total Pembayaran</div>
+        </div>
+
+        <div id="qr-point-info" class="hidden">
+            <div class="alert alert-success" id="qr-point-info-text"></div>
+        </div>
+
+        <button class="btn btn-success btn-block mt-2" onclick="confirmQRPayment()">
+            <span id="qr-confirm-text"><i data-lucide="check-circle" style="width:16px;height:16px;display:inline;vertical-align:middle;"></i> Konfirmasi Pembayaran</span>
+            <span class="spinner hidden" id="qr-confirm-spinner"></span>
+        </button>
+    </div>
+</div>
+
+<!-- ================================================================
+     MODAL 7: Transaction Success
+     ================================================================ -->
+<div class="modal-overlay" id="modal-success">
+    <div class="modal-content">
+        <div class="success-screen">
+            <div class="success-icon-large" style="display:flex;justify-content:center;align-items:center;color:var(--success);"><i data-lucide="circle-check" style="width:64px;height:64px;"></i></div>
+            <h3>Transaksi Berhasil!</h3>
+            <p id="success-txn-id">—</p>
+
+            <div class="receipt-box" id="success-receipt">
+                <!-- Filled by JS -->
+            </div>
+
+            <div id="success-member-info" class="hidden">
+                <div class="alert alert-success" id="success-points-msg"></div>
+            </div>
+
+            <button class="btn btn-primary btn-block mt-2" onclick="finishTransaction()" style="display:flex;justify-content:center;align-items:center;gap:8px;">
+                <i data-lucide="plus-circle" style="width:18px;height:18px;"></i> Transaksi Baru
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('kasir.static', filename='js/app.js') }}?v=2"></script>
+<script src="{{ url_for('kasir.static', filename='js/member.js') }}?v=2"></script>
+<script src="{{ url_for('kasir.static', filename='js/face_camera.js') }}?v=2"></script>
+<script src="{{ url_for('kasir.static', filename='js/payment.js') }}?v=2"></script>
+{% endblock %}
