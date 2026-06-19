@@ -604,12 +604,6 @@ Sistem ini merupakan integrasi dari 3 project terpisah yang dikembangkan dalam m
 
 ---
 
-## 📄 License
-
-This project is developed for educational purposes at **Politeknik Elektronika Negeri Surabaya (PENS)**.
-
----
-
 <div align="center">
   <strong>🏪 Smart Souvenir — Integrated POS, Inventory & Gate System</strong>
   <br>
