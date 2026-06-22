@@ -24,7 +24,7 @@ const char* ssid     = "wudeheli";
 const char* password = "kalau0000";
 
 // API server (HTTP via IP lokal / XAMPP)
-String serverName = "http://192.168.100.74:5000/stock/api/insert_rfid.php"
+String serverName = "http://192.168.100.74:5000/stock/api/insert_rfid.php";
 
 // client (nama dipertahankan agar perubahan minimal)
 WiFiClient secureClient;

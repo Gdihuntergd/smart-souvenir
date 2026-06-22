@@ -27,7 +27,7 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);
 // GANTI SESUAI IP PC / SERVER
 // =======================
 //const char* serverName = "http://10.80.112.77/kasir_souvenir/kasir_souvenir/api/scan_rfid.php";
-const char* serverName = "http://192.168.100.74:5000/kasir/api/scan_rfid.php"
+const char* serverName = "http://192.168.100.74:5000/kasir/api/scan_rfid.php";
 // contoh XAMPP: htdocs/kasir_souvenir/api/scan_rfid.php
 
 // =======================
